@@ -24,15 +24,6 @@ class DarkSoulsWikiSpider(scrapy.Spider):
     "#wiki-content-block > div:nth-child(7) > table > tbody > tr > td:nth-child(2) > a::text"
   ]
 
-  resistances_selectors = [
-    "#wiki-content-block > div:nth-child(15) > table > tbody",
-    "#wiki-content-block > div:nth-child(13) > table > tbody",
-    "#wiki-content-block > div:nth-child(11) > table > tbody",
-    "#wiki-content-block > div:nth-child(14) > table > tbody",
-    "#wiki-content-block > div.hpwidget > div:nth-child(7) > table > tbody",
-    "#wiki-content-block > div:nth-child(12) > table > tbody"
-  ]
-
   def parse(self, response):
     for link in response.css('#wiki-content-block > div > h3 > a'):
       href = link.css('::attr(href)').get()
@@ -57,17 +48,17 @@ class DarkSoulsWikiSpider(scrapy.Spider):
 
     areas = loop_selectors(html=table, selectors=self.areas_selectors)
 
-    if areas[0] == "237":
-      areas = ["New Londo Ruins "]
-    
-    if areas[0] == "184 ~":
-      areas = ["Crystal Cave"]
-    
-    if areas[0] == "281 ~":
-      areas = ["Multiple"]
+    if areas != None and type(areas) == list and areas != []:
+      if areas[0] == "237":
+        areas = ["New Londo Ruins"]
+      
+      if areas[0] == "184 ~":
+        areas = ["Crystal Cave"]
+      
+      if areas[0] == "281 ~":
+        areas = ["Multiple"]
 
     drops = loop_selectors(html=response, selectors=self.drops_selectors)
-    stronger_vs = loop_selectors(html=response, selectors=self.resistances_selectors)
     
     if image_url == '/file/Dark-Souls/tumblr_lxlmomDlzY1qgjlhf.jpg':
       name = table.css("tbody > tr:nth-child(1) > th > h3::text").get()
@@ -78,7 +69,7 @@ class DarkSoulsWikiSpider(scrapy.Spider):
       'image_url': image_url,
       'areas': areas,
       'drops': drops,
-      'stronger_vs': stronger_vs,
-      # 'weaker_to': weaker_to,
+      'stronger_vs': [],
+      'weaker_to': [],
       'game': 'Dark Souls'
     }
