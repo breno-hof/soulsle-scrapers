@@ -1,4 +1,5 @@
 __pycache__
+.env
 bloodborne_bosses.json
 darksouls_bosses.json
 darksouls2_bosses.json

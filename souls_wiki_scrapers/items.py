@@ -3,10 +3,15 @@
 # See documentation in:
 # https://docs.scrapy.org/en/latest/topics/items.html
 
-import scrapy
+from dataclasses import dataclass
+from typing import List
 
-
-class SoulsWikiScrapersItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+@dataclass
+class SoulsWikiScrapersItem:
+    name: str
+    image_url: str
+    areas: List[str]
+    drops: List[str]
+    stronger_vs: List[str]
+    weaker_to: List[str]
+    game: str
