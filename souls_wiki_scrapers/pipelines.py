@@ -21,7 +21,8 @@ class SoulsWikiScrapersPipeline:
       host=os.getenv('SOULSBORNE_HOST', 'localhost'),
       database=os.getenv('SOULSBORNE_DB', 'nome_da_base'),
       user=os.getenv('SOULSLE_USER', 'seu_usuario'),
-      password=os.getenv('SOULSLE_PASSWORD','sua_senha')
+      password=os.getenv('SOULSLE_PASSWORD', 'sua_senha'),
+      port=os.getenv('SOULSBORNE_PORT', 5432)
     )
     self.cursor = self.connection.cursor()
 
