@@ -1,75 +1,47 @@
 import scrapy
-from ..utils.spider_utils import loop_selectors
+from ..utils.spider_utils import clean_text, dedupe, field_values, infobox_fields
 
 class DarkSoulsWikiSpider(scrapy.Spider):
   name = "darksouls_wiki"
-  start_urls = ["https://darksouls.wiki.fextralife.com/Area+Bosses", "https://darksouls.wiki.fextralife.com/Mini+Bosses", "https://darksouls.wiki.fextralife.com/Expansion+Bosses"]
-  
-  areas_selectors = [
-    "tr:nth-child(3) > td:nth-child(2) > a::text",
-    "tr:nth-child(3) > td:nth-child(3) > a::text",
-    "tr:nth-child(3) > td > a::text",
-    "tr:nth-child(3) > td:nth-child(2) > span > a::text",
-    "tr:nth-child(2) > td:nth-child(2) > a::text",
-    "tr:nth-child(3) > td:nth-child(2)::text"
-  ]
+  start_urls = ["https://darksouls.wiki.fextralife.com/Area_Bosses", "https://darksouls.wiki.fextralife.com/Mini_Bosses", "https://darksouls.wiki.fextralife.com/Expansion_Bosses"]
 
-  drops_selectors = [
-    "#wiki-content-block > div:nth-child(17) > div:nth-child(1) > ul > li > a:nth-child(1)::text",
-    "#wiki-content-block > ul > li > span > a::text",
-    "#wiki-content-block > ul > li > a::text",
-    "#wiki-content-block > div.hpwidget > ul > li > a::text",
-    "#wiki-content-block > div:nth-child(11) > div:nth-child(1) > ul > li > a::text",
-    "#wiki-content-block > div.row > div:nth-child(1) > ul > li > a::text",
-    "#wiki-content-block > div:nth-child(7) > table > tbody > tr > td:nth-child(2) > a::text"
-  ]
+  # Bosses whose infobox has no location
+  fixed_areas = {
+    "Dragon Slayer Ornstein and Executioner Smough": ["Anor Londo"]
+  }
 
   def parse(self, response):
-    for link in response.css('#wiki-content-block > div > h3 > a'):
-      href = link.css('::attr(href)').get()
+    for href in response.css('.mw-parser-output > div.row a::attr(href)').getall():
+      if not href.startswith('/File:'):
+        yield response.follow(href, callback=self.parse_boss)
 
-      full_url = response.urljoin(href)
-      yield scrapy.Request(full_url, callback=self.parse_boss)
-  
   def parse_boss(self, response):
-    table = response.css('#infobox .wiki_table')
-    name = table.css('h2::text').get()
+    table = response.css('#infobox table')
+    name = clean_text(table.css('tr:first-child > th'))
 
-    if name == None:
-      name = table.css('tbody > tr:nth-child(1) > th::text').get()
-    
-    if name == None:
-      name = table.css('thead > tr > th > h3::text').get()
+    if not name:
+      return
 
-    image_url = table.css('tbody > tr:nth-child(2) > td img::attr(src)').get()
-    
-    if image_url == None:
-      image_url = table.css('tbody > tr:nth-child(1) > td img::attr(src)').get()
-
-    areas = loop_selectors(html=table, selectors=self.areas_selectors)
-
-    if areas != None and type(areas) == list and areas != []:
-      if areas[0] == "237":
-        areas = ["New Londo Ruins"]
-      
-      if areas[0] == "184 ~":
-        areas = ["Crystal Cave"]
-      
-      if areas[0] == "281 ~":
-        areas = ["Multiple"]
-
-    drops = loop_selectors(html=response, selectors=self.drops_selectors)
-    
-    if image_url == '/file/Dark-Souls/tumblr_lxlmomDlzY1qgjlhf.jpg':
-      name = table.css("tbody > tr:nth-child(1) > th > h3::text").get()
-      areas = ["Anor Londo"]
+    fields = infobox_fields(table)
+    areas = self.fixed_areas.get(name) or field_values(fields, ['location'])
 
     yield {
-      'name': name.strip(),
-      'image_url': image_url,
+      'name': name,
+      'image_url': table.css('img::attr(src)').get(),
       'areas': areas,
-      'drops': drops,
+      'drops': self.parse_drops(response),
       'stronger_vs': [],
       'weaker_to': [],
       'game': 'Dark Souls'
     }
+
+  def parse_drops(self, response):
+    # Drops are listed under a "... Drops" heading, either directly or inside a div.row
+    content = response.css('.mw-parser-output')
+    lists = content.xpath('./h3[contains(., "Drops")]/following-sibling::*[1][self::ul]')
+
+    if lists == []:
+      lists = content.xpath('./div[contains(@class, "row")][.//*[contains(text(), "Drops")]]//ul')
+
+    drops = [item.css('a::text').get() for item in lists.css('li')]
+    return dedupe([drop.strip() for drop in drops if drop and drop.strip()])

@@ -12,6 +12,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class SoulsWikiScrapersPipeline:
+  @classmethod
+  def from_crawler(cls, crawler):
+    return cls()
+
   def __init__(self):
     self.connection = None
     self.cursor = None

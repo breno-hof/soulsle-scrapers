@@ -1,37 +1,33 @@
 import scrapy
-from ..utils.spider_utils import sanitize_values
+from ..utils.spider_utils import cell_values, clean_text, table_records
 
 class DarkSouls2WikiSpider(scrapy.Spider):
   name = "darksouls2_wiki"
-  start_urls = ["https://darksouls2.wiki.fextralife.com/Bosses"]
+  # The comparison table on /Bosses is lazy-loaded from this subpage
+  start_urls = ["https://darksouls2.wiki.fextralife.com/Subcontent:Bosses_3_Bosses_Comparison_Table"]
 
   def parse(self, response):
-    table_rows = response.css('.wiki_table tbody > tr')
+    for record in table_records(response.css('.mw-parser-output table')):
+      href = record['name'].css('a::attr(href)').get()
 
-    for row in table_rows:
-      href = row.css('td:nth-child(1) > a::attr(href)').get()
-      full_url = response.urljoin(href)
+      if href == None:
+        continue
 
-      yield response.follow(full_url, callback=self.parse_image_url, meta={
-        'name': row.css('td:nth-child(1) > a::text').get(),
-        'areas': row.css('td:nth-child(3) > a::text').getall(),
-        'drops': row.css('td:nth-child(4) > a::text').getall(),
-        'stronger_vs': row.css('td:nth-child(5)::text').get().split(','),
-        'weaker_to': row.css('td:nth-child(6)::text').get().split(',')
+      yield response.follow(href, callback=self.parse_image_url, meta={
+        'name': clean_text(record['name']),
+        'areas': cell_values(record['location']),
+        'drops': cell_values(record['soul dropped']),
+        'stronger_vs': cell_values(record['resistance']),
+        'weaker_to': cell_values(record['weakness'])
       })
-  
-  def parse_image_url(self, response):
-    image_url = response.css('#infobox > div > table > tbody > tr:nth-child(2) > td > img::attr(src)').get()
 
-    if image_url == None:
-      image_url = response.css('#infobox > div > table > tbody > tr:nth-child(2) > td > a > img::attr(src)').get()
-    
+  def parse_image_url(self, response):
     yield {
       'name': response.meta['name'],
-      'image_url': image_url,
+      'image_url': response.css('#infobox table img::attr(src)').get(),
       'areas':  response.meta['areas'],
       'drops': response.meta['drops'],
-      'stronger_vs': sanitize_values(response.meta['stronger_vs']),
-      'weaker_to': sanitize_values(response.meta['weaker_to']),
+      'stronger_vs': response.meta['stronger_vs'],
+      'weaker_to': response.meta['weaker_to'],
       'game': 'Dark Souls 2'
     }
